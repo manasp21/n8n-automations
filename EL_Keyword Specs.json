@@ -1,0 +1,324 @@
+{
+  "name": "EL_Keyword Specs",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atomic-spectra-record",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "75e06a58-8096-4e98-84a8-6fb2808b6e29",
+      "name": "Receive Article Metadata",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3120,
+        560
+      ],
+      "webhookId": "c07ea01b-8acd-47c5-8074-06670115143d"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "genintCodes",
+              "value": "={{ { \"E\": \"Emission\", \"A\": \"Absorption\", \"F\": \"Fluorescence\", \"P\": \"Photoionization\", \"I\": \"Ionization\", \"R\": \"Recombination\", \"C\": \"Collision\", \"T\": \"Theoretical\", \"M\": \"Measurement\", \"S\": \"Spectroscopy\" } }}",
+              "type": "object"
+            },
+            {
+              "id": "id-2",
+              "name": "methodTypeRules",
+              "value": "={{ { \"allowedTypes\": [\"experimental\", \"theoretical\", \"semi-empirical\", \"computational\"], \"requiresValidation\": true, \"defaultType\": \"experimental\" } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "3e0e2c37-d172-4a37-a868-9596e0c7b188",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2896,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ Object.keys($binary).length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "59c1219b-2c46-4a02-a245-c4f2f7126439",
+      "name": "Check if Binary File",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2672,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "b0559d4d-d170-4c6f-a3bf-98ed580ea3d5",
+      "name": "Extract Text from PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2448,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "fullText",
+              "value": "={{ $json.title + '\\n\\n' + ($json.abstract || '') + '\\n\\n' + ($json.extractedText || $json.introduction || '') }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "analysisText",
+              "value": "={{ 'Title: ' + $json.title + '\\n\\nAbstract: ' + ($json.abstract || 'Not available') + '\\n\\nContent: ' + ($json.extractedText || $json.introduction || 'Not available') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "884dbafc-285c-4bf2-9daa-c3e55876bc1a",
+      "name": "Prepare Text for Analysis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2224,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.analysisText }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a specialized semantic classification agent for atomic spectroscopy literature. Your task is to analyze scientific article text and metadata to generate structured bibliographic classifications.\n\n## Your Classification Tasks:\n\n### 1. General Topic Detection (GENINT Codes)\nIdentify the primary research domain and assign appropriate GENINT codes. Examples:\n- 1.13: Atomic Clocks\n- 1.20: Kilonova Opacities\n- Assign codes based on the main scientific application or context\n\n### 2. Spectrum Parsing\nExtract chemical elements and ionization stages from the text:\n- Identify all elements mentioned (e.g., C, Fe, Ar)\n- Determine ionization stages (I, II, III, IV, etc.)\n- Apply compression logic: Use ranges when multiple consecutive stages are present\n  - Example: \"C I-IV\" represents Carbon I, II, III, and IV\n  - Example: \"Fe II\" for single ionization stage\n  - Example: \"Ar I-III\" for Argon I, II, and III\n\n### 3. Specific Subject Categorization\nAssign subject codes with contextual differentiation:\n- EL: Energy Levels (experimentally measured or compiled energy level data)\n- TE: Theoretical Energies (calculated or predicted energy values)\n- Apply term replacement: \"Ionization Energy\" → \"IP\" (Ionization Potential)\n- Distinguish between experimental measurements and theoretical calculations\n\n### 4. Hyperfine Structure (Hfs) Expansion Rule\nWhen isotope-specific hyperfine structure measurements are detected:\n- Generate TWO separate entries:\n  1. One entry for the specific isotope (e.g., \"Fe-57 Hfs\")\n  2. One entry for the normal spectrum without isotope specification (e.g., \"Fe Hfs\")\n- This ensures both specific and general classifications are captured\n\n### 5. Method Type Assignment\nClassify the research methodology:\n- E: Experimental (laboratory measurements, observations)\n- T: Theory (computational, theoretical calculations)\n- O: Other (reviews, compilations, mixed methods)\n\n## Output Format\nReturn a structured JSON object containing:\n- genint_codes: Array of general topic codes\n- elements: Array of element-ionization pairs with compression applied\n- subjects: Array of specific subject classifications\n- method_types: Array of method type codes (E, T, O)\n- hyperfine_entries: Array of hyperfine structure entries (if applicable)\n\nAnalyze the provided text thoroughly and return ALL relevant classifications in the structured format."
+        }
+      },
+      "id": "918fece4-ec06-4ca9-bec7-70b39dadd5b9",
+      "name": "Semantic Classification Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -2000,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "d62d3b84-9239-4f8f-a7ae-9323e8d055a5",
+      "name": "OpenAI GPT-4",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2000,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"generalTopics\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"methodType\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\"code\", \"methodType\"]\n      }\n    },\n    \"spectra\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"element\": {\n            \"type\": \"string\"\n          },\n          \"ionizationStages\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"subjects\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"name\": {\n                  \"type\": \"string\"\n                },\n                \"methodType\": {\n                  \"type\": \"string\"\n                }\n              },\n              \"required\": [\"name\", \"methodType\"]\n            }\n          }\n        },\n        \"required\": [\"element\", \"ionizationStages\", \"subjects\"]\n      }\n    },\n    \"isotopes\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"isotope\": {\n            \"type\": \"string\"\n          },\n          \"element\": {\n            \"type\": \"string\"\n          },\n          \"ionizationStage\": {\n            \"type\": \"string\"\n          },\n          \"subjects\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"name\": {\n                  \"type\": \"string\"\n                },\n                \"methodType\": {\n                  \"type\": \"string\"\n                }\n              },\n              \"required\": [\"name\", \"methodType\"]\n            }\n          }\n        },\n        \"required\": [\"isotope\", \"element\", \"ionizationStage\", \"subjects\"]\n      }\n    },\n    \"validationNotes\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"generalTopics\", \"spectra\", \"isotopes\", \"validationNotes\"]\n}"
+      },
+      "id": "4e758c17-ccb7-4b74-875b-2507e79a7f13",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1872,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Method Types for Atomic Spectra Classification\n// This code validates the method type tags according to atomic spectra standards\n\nconst items = $input.all();\nconst validatedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const warnings = [];\n  const errors = [];\n  let corrected = false;\n  \n  // Extract method types from the classification\n  const methodTypes = data.methodTypes || [];\n  const wavelengths = data.wavelengths || [];\n  const abInitio = data.abInitio || [];\n  const parametric = data.parametric || [];\n  const semiempirical = data.semiempirical || [];\n  \n  // 1. Check if Wavelengths (W) are tagged with method type E (Experimental)\n  if (wavelengths.length > 0) {\n    const hasExperimentalTag = methodTypes.some(mt => mt.type === 'W' && mt.methodTag === 'E');\n    if (!hasExperimentalTag) {\n      errors.push('Wavelengths (W) must be tagged with method type E (Experimental)');\n      // Auto-correct: Add E tag for wavelengths\n      methodTypes.push({ type: 'W', methodTag: 'E' });\n      corrected = true;\n    }\n  }\n  \n  // 2. Verify Ab Initio (AT) and Parametric (PT) are tagged as T (Theory)\n  if (abInitio.length > 0) {\n    const hasTheoryTag = methodTypes.some(mt => mt.type === 'AT' && mt.methodTag === 'T');\n    if (!hasTheoryTag) {\n      errors.push('Ab Initio (AT) must be tagged with method type T (Theory)');\n      // Auto-correct: Add T tag for ab initio\n      methodTypes.push({ type: 'AT', methodTag: 'T' });\n      corrected = true;\n    }\n  }\n  \n  if (parametric.length > 0) {\n    const hasTheoryTag = methodTypes.some(mt => mt.type === 'PT' && mt.methodTag === 'T');\n    if (!hasTheoryTag) {\n      errors.push('Parametric (PT) must be tagged with method type T (Theory)');\n      // Auto-correct: Add T tag for parametric\n      methodTypes.push({ type: 'PT', methodTag: 'T' });\n      corrected = true;\n    }\n  }\n  \n  // 3. Ensure semiempirical data is tagged as O (Other) unless specific exceptions\n  if (semiempirical.length > 0) {\n    const hasOtherTag = methodTypes.some(mt => mt.type === 'SE' && (mt.methodTag === 'O' || mt.methodTag === 'T'));\n    if (!hasOtherTag) {\n      warnings.push('Semiempirical (SE) should typically be tagged as O (Other) or T (Theory) for specific cases');\n      // Auto-correct: Add O tag for semiempirical\n      methodTypes.push({ type: 'SE', methodTag: 'O' });\n      corrected = true;\n    }\n  }\n  \n  // 4. Validate no invalid combinations exist\n  const invalidCombinations = [\n    { type: 'W', invalidTags: ['T', 'O'], message: 'Wavelengths (W) cannot be tagged as Theory (T) or Other (O)' },\n    { type: 'AT', invalidTags: ['E', 'O'], message: 'Ab Initio (AT) cannot be tagged as Experimental (E) or Other (O)' },\n    { type: 'PT', invalidTags: ['E', 'O'], message: 'Parametric (PT) cannot be tagged as Experimental (E) or Other (O)' }\n  ];\n  \n  for (const combo of invalidCombinations) {\n    const invalidFound = methodTypes.filter(mt => \n      mt.type === combo.type && combo.invalidTags.includes(mt.methodTag)\n    );\n    if (invalidFound.length > 0) {\n      errors.push(combo.message);\n      // Remove invalid combinations\n      for (let i = methodTypes.length - 1; i >= 0; i--) {\n        if (methodTypes[i].type === combo.type && combo.invalidTags.includes(methodTypes[i].methodTag)) {\n          methodTypes.splice(i, 1);\n          corrected = true;\n        }\n      }\n    }\n  }\n  \n  // 5. Return validated data with any corrections or warnings\n  validatedItems.push({\n    json: {\n      ...data,\n      methodTypes: methodTypes,\n      validation: {\n        status: errors.length === 0 ? 'valid' : 'corrected',\n        corrected: corrected,\n        errors: errors,\n        warnings: warnings,\n        timestamp: new Date().toISOString()\n      }\n    }\n  });\n}\n\nreturn validatedItems;"
+      },
+      "id": "b9bc3e75-cf39-4234-a7b8-abc3216632ac",
+      "name": "Validate Method Types",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format BibTeX Record\n// This code creates a properly formatted BibTeX entry for atomic spectra articles\n\nconst items = $input.all();\nconst outputItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Generate citation key (e.g., Author2024)\n  const firstAuthor = data.author ? data.author.split(',')[0].trim().replace(/\\s+/g, '') : 'Unknown';\n  const year = data.year || new Date().getFullYear();\n  const citationKey = `${firstAuthor}${year}`;\n  \n  // Format keywords_el field with newline-separated entries\n  let keywordsEl = '';\n  if (data.keywords_el && Array.isArray(data.keywords_el)) {\n    keywordsEl = data.keywords_el.join(',\\n                  ');\n  } else if (data.keywords_el && typeof data.keywords_el === 'string') {\n    keywordsEl = data.keywords_el;\n  }\n  \n  // Helper function to format isotopes with LaTeX (e.g., $^{87}$Rb)\n  function formatIsotopes(text) {\n    if (!text) return text;\n    // Match patterns like 87Rb and convert to $^{87}$Rb\n    return text.replace(/(\\d+)([A-Z][a-z]?)/g, '$$^{$1}$$$2');\n  }\n  \n  // Helper function to compress ionization stages (e.g., Rb I-IV)\n  function compressIonization(text) {\n    if (!text) return text;\n    // Match patterns like \"Rb I, Rb II, Rb III, Rb IV\" and compress to \"Rb I-IV\"\n    const ionPattern = /([A-Z][a-z]?)\\s+(I+)(?:,\\s*\\1\\s+(I+))+/g;\n    return text.replace(ionPattern, (match, element, firstIon) => {\n      const ions = match.match(/I+/g);\n      if (ions && ions.length > 1) {\n        const lastIon = ions[ions.length - 1];\n        return `${element} ${firstIon}-${lastIon}`;\n      }\n      return match;\n    });\n  }\n  \n  // Apply formatting to title and keywords\n  let formattedTitle = formatIsotopes(data.title || '');\n  formattedTitle = compressIonization(formattedTitle);\n  \n  let formattedKeywords = formatIsotopes(keywordsEl);\n  formattedKeywords = compressIonization(formattedKeywords);\n  \n  // Build BibTeX entry\n  let bibtex = `@article{${citationKey},\\n`;\n  \n  if (data.author) {\n    bibtex += `  author        = {${data.author}},\\n`;\n  }\n  \n  if (formattedTitle) {\n    bibtex += `  title         = {${formattedTitle}},\\n`;\n  }\n  \n  if (data.journal) {\n    bibtex += `  journal       = {${data.journal}},\\n`;\n  }\n  \n  if (data.volume) {\n    bibtex += `  volume        = {${data.volume}},\\n`;\n  }\n  \n  if (data.pages) {\n    bibtex += `  pages         = {${data.pages}},\\n`;\n  }\n  \n  if (data.year) {\n    bibtex += `  year          = {${data.year}},\\n`;\n  }\n  \n  if (data.doi) {\n    bibtex += `  doi           = {${data.doi}},\\n`;\n  }\n  \n  if (formattedKeywords) {\n    bibtex += `  keywords_el   = {${formattedKeywords}},\\n`;\n  }\n  \n  // Remove trailing comma and newline, then close the entry\n  bibtex = bibtex.replace(/,\\n$/, '\\n');\n  bibtex += `}\\n`;\n  \n  // Handle hyperfine structure expansion\n  // Generate both isotope-specific and generic entries if hyperfine data exists\n  let expandedBibtex = bibtex;\n  \n  if (data.hyperfine_isotopes && Array.isArray(data.hyperfine_isotopes)) {\n    // Create isotope-specific entries\n    for (const isotope of data.hyperfine_isotopes) {\n      const isotopeKey = `${citationKey}_${isotope}`;\n      let isotopeBibtex = bibtex.replace(`@article{${citationKey}`, `@article{${isotopeKey}`);\n      \n      // Add isotope-specific note\n      isotopeBibtex = isotopeBibtex.replace(/}\\n$/, `,\\n  note          = {Isotope-specific entry for $^{${isotope}}$}\\n}\\n`);\n      \n      expandedBibtex += `\\n${isotopeBibtex}`;\n    }\n  }\n  \n  outputItems.push({\n    json: {\n      ...data,\n      bibtex: expandedBibtex,\n      citation_key: citationKey\n    }\n  });\n}\n\nreturn outputItems;"
+      },
+      "id": "542f99d8-63e1-4542-92da-d77583a1e9c0",
+      "name": "Format BibTeX Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        560
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Article Metadata": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Check if Binary File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Binary File": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Text for Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from PDF": {
+      "main": [
+        [
+          {
+            "node": "Prepare Text for Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Text for Analysis": {
+      "main": [
+        [
+          {
+            "node": "Semantic Classification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Semantic Classification Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Method Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Semantic Classification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Semantic Classification Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Method Types": {
+      "main": [
+        [
+          {
+            "node": "Format BibTeX Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e4140dcd-ab3a-4bd8-992b-625d3d32b6e9",
+  "meta": {
+    "instanceId": "09d42f0470615b51f96e1b231ba3f3b517a228a7eb8712271f81ec4e3340ec9f"
+  },
+  "id": "gaCItlSHPn5vDDn1",
+  "tags": []
+}
