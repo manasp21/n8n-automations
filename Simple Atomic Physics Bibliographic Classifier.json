@@ -1,0 +1,182 @@
+{
+  "name": "Simple Atomic Physics Bibliographic Classifier",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are an expert Atomic Physics Bibliographer. Your task is to extract strict classification codes from scientific text for a database.\n\n### CODES REFERENCE\n\n**1. General Topic (GENINT)**\nAssign codes 1.1 to 1.21 based on the entire paper:\n- 1.1 Isoelectronic Sequences\n- 1.2 Compilations\n- 1.3 Reviews, Bibliographies\n- 1.6 Instrumentation\n- 1.7 Atomic Codes\n- 1.8 Atomic Databases\n- 1.9 Exotic Atoms\n- 1.10 X-ray characteristic lines\n- 1.11 Fundamental constants\n- 1.12 Parity Nonconservation (PNC)\n- 1.13 Atomic Clocks\n- 1.14 Freq/Wavelength Standards\n- 1.15 Auger Electron Spectra\n- 1.16 X-ray Lasers\n- 1.17 Plasma Environment Effects\n- 1.18 Plasma Diagnostics\n- 1.19 Superheavy elements\n- 1.20 Kilonova Opacities\n- 1.21 Rydberg Atoms\n- 1.5 Other (if no specific match)\n\n**2. Research Type**\n- E: Experiment (measured, observed)\n- T: Theory (calculated, ab initio, model)\n- O: Other (semi-empirical, fit)\n\n**3. Specific Subjects (Per Spectrum)**\nFor every spectrum mentioned (e.g., Al I, Hg II), identify the data type:\n- EL: Energy Levels (Strictly Experiment)\n- ND: New Designations\n- CL: Classified Lines\n- TA: Transition Array\n- W: Wavelengths (Strictly Experiment)\n- ZE: Zeeman Effect\n- SE: Stark Effect\n- Hfs: Hyperfine Structure\n- IS: Isotopic Shifts\n- QF: Quantum Field Effects\n- IP: Ionization Potential (Strictly Ground State)\n- SF: Series Formulae\n- TE: Theoretical Energies (Strictly Theory)\n- PT: Parametric Theory\n- AT: Ab Initio Theory\n\n### INSTRUCTIONS\nAnalyze the input text. Return a JSON object containing:\n1. The General Topic codes (array).\n2. The Global Research Type.\n3. A list of Specific Subjects found. For each, extract:\n   - `base_spectrum` (e.g., \"Al I\", \"Hg II\"). Do NOT include isotope numbers here.\n   - `subject_code` (EL, W, Hfs, etc.)\n   - `method` (E, T, O)\n   - `isotope`: If a specific isotope is measured (e.g., \"198\" for 198Hg), extract it. Otherwise null.\n   - `is_ground_state`: Boolean. Only relevant for IP."
+        }
+      },
+      "id": "a0dee8b0-716b-42f3-893c-63a2af53c0bb",
+      "name": "AI Classifier Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        448,
+        0
+      ],
+      "inputs": [
+        {
+          "index": 0,
+          "displayName": "Input",
+          "name": "main",
+          "type": "main"
+        },
+        {
+          "index": 0,
+          "displayName": "Model",
+          "name": "ai_languageModel",
+          "type": "ai_languageModel"
+        },
+        {
+          "index": 0,
+          "displayName": "Output Parser",
+          "name": "ai_outputParser",
+          "type": "ai_outputParser"
+        }
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Access the output from the AI Agent\nconst aiOutput = items[0].json;\nconst keywords_list = [];\n\n// ----------------------------------------\n// 1. Process GENINT (General Topic) Codes\n// ----------------------------------------\nconst globalType = aiOutput.global_research_type || 'U';\n\nif (aiOutput.genint_codes && Array.isArray(aiOutput.genint_codes)) {\n    aiOutput.genint_codes.forEach(code => {\n        // Format: GENINT: [Code]: [Type]\n        keywords_list.push(`GENINT: ${code}: ${globalType}`);\n    });\n}\n\n// ----------------------------------------\n// 2. Process Specific Subjects (with Rules)\n// ----------------------------------------\nif (aiOutput.subjects && Array.isArray(aiOutput.subjects)) {\n    aiOutput.subjects.forEach(sub => {\n        let code = sub.subject_code;\n        let method = sub.method;\n        let spectrum = sub.base_spectrum;\n        const isotope = sub.isotope;\n        const isGround = sub.is_ground_state;\n\n        // --- RULE: Energy Levels (EL) ---\n        // Can only be Experimental (E). If Theory (T), switch to TE.\n        if (code === 'EL' && method === 'T') {\n            code = 'TE';\n        }\n\n        // --- RULE: Wavelengths (W) ---\n        // Can only be E. If T, usually TE or TA. We default to TE for safety.\n        if (code === 'W' && method === 'T') {\n            code = 'TE';\n        }\n\n        // --- RULE: Ionization Potential (IP) ---\n        // Must be Ground State. If excited, switch to EL (if Exp) or TE (if Theory)\n        if (code === 'IP' && !isGround) {\n            code = (method === 'T') ? 'TE' : 'EL';\n        }\n\n        // --- Add the Base Entry ---\n        // e.g. \"Hg II: Hfs: E\"\n        keywords_list.push(`${spectrum}: ${code}: ${method}`);\n\n        // --- RULE: Hyperfine Structure (Hfs) Isotope Duplication ---\n        // If Hfs AND a specific isotope is found, add a second entry.\n        // e.g. \"198Hg II: Hfs: E\"\n        if (code === 'Hfs' && isotope) {\n            const isoSpectrum = `${isotope}${spectrum}`; // Concatenate: 198 + Hg II\n            keywords_list.push(`${isoSpectrum}: ${code}: ${method}`);\n        }\n    });\n}\n\n// ----------------------------------------\n// 3. Construct Final BibTeX Record\n// ----------------------------------------\n// Join all keywords with a newline character as requested\nconst keywords_string = keywords_list.join('\\n');\n\nreturn {\n    json: {\n        original_text_snippet: items[0].json.text,\n        keywords_el: keywords_string,\n        processed_count: keywords_list.length\n    }\n};"
+      },
+      "id": "db0392aa-4a27-43ba-a4d1-6120a4f18b5b",
+      "name": "Format & Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        0
+      ],
+      "id": "b3c30935-0878-482a-a737-b67559b3e02d",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/files/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -32
+      ],
+      "id": "1f7759e3-5eaa-41f1-bd4a-7e2899c43eb5",
+      "name": "Read/Write Files from Disk",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        368,
+        240
+      ],
+      "id": "dfa21a08-a5ea-4be3-9fce-3b37c0ccd6af",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "6raa23Tc8f41D1hH",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        -32
+      ],
+      "id": "d6faf77a-f640-4af6-99c0-7211ff09af99",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Classifier Agent": {
+      "main": [
+        [
+          {
+            "node": "Format & Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Classifier Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Classifier Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ed1dd481-53d5-4c61-b7e4-3d19865f3f6e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09d42f0470615b51f96e1b231ba3f3b517a228a7eb8712271f81ec4e3340ec9f"
+  },
+  "id": "m26Jm8fHF9fK1niN",
+  "tags": []
+}
