@@ -1,0 +1,546 @@
+{
+  "name": "Agent for Marianna",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "id": "18a3e9d8-1bb2-44e4-a024-f618c607dc64",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1456,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "element",
+              "value": "<__PLACEHOLDER_VALUE__Element symbol (e.g., Ca+)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "energyLevels",
+              "value": "<__PLACEHOLDER_VALUE__Number of lowest energy levels to process__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "theoryDataUrl",
+              "value": "<__PLACEHOLDER_VALUE__URL to theory data files__>",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "outputStorageUrl",
+              "value": "<__PLACEHOLDER_VALUE__URL endpoint for saving formatted files__>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "e3a6dfa5-6e85-4880-a0c6-c46540ab3d47",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1232,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.element }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a scientific literature research assistant specializing in atomic physics.\n\nYour task is to find relevant scientific papers containing experimental atomic data for the specified element. Focus on papers that report:\n- Lifetimes\n- Transition rates (A-values)\n- Reduced E1 matrix elements\n- Hyperfine constants A and B\n- Other atomic properties\n\nSearch academic databases and repositories (arXiv, PubMed, ADS, etc.) and return a list of papers with:\n- Title\n- Authors\n- Publication year\n- DOI or URL\n- Brief description of what data is available\n\nPrioritize papers with data for the lowest energy levels of the element."
+        }
+      },
+      "id": "ca47d2ff-56f8-4160-80f1-b7053b058c46",
+      "name": "Literature Search Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1008,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "4334d699-4de5-482d-ba76-07d053567fc1",
+      "name": "OpenAI Chat Model - Search",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1008,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"papers\": {\n\t\t\t\"type\": \"array\",\n\t\t\t\"items\": {\n\t\t\t\t\"type\": \"object\",\n\t\t\t\t\"properties\": {\n\t\t\t\t\t\"title\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"authors\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"year\": {\n\t\t\t\t\t\t\"type\": \"number\"\n\t\t\t\t\t},\n\t\t\t\t\t\"doi\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"url\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"dataTypes\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}"
+      },
+      "id": "6f4ba537-f32f-4d11-b0e5-cfbdcb0820c3",
+      "name": "Paper Metadata Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -880,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "2392b9f8-61c7-4aea-82d9-d3c3e1092744",
+      "name": "Download Paper PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -656,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "3865a1e0-932d-444a-a2a4-b5615c3adf4e",
+      "name": "Extract Text from PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -432,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert in extracting atomic physics data from scientific papers.\n\nYour task is to extract the following experimental data from the provided paper text:\n1. Lifetimes (τ) with uncertainties\n2. Transition rates (A-values) with uncertainties\n3. Reduced E1 matrix elements with uncertainties\n4. Hyperfine constants A and B with uncertainties\n5. Energy levels and quantum numbers\n\nFor each data point, extract:\n- Property type (lifetime, transition rate, matrix element, hyperfine constant)\n- Value\n- Uncertainty\n- Units\n- Initial and final states (quantum numbers)\n- Reference citation\n\nReturn all extracted data in structured format. If transition rates are given, note that they can be converted to matrix elements using formulas from https://www1.udel.edu/atom/about."
+        }
+      },
+      "id": "3e857992-f424-4293-b460-21c63b069936",
+      "name": "Data Extraction Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "11942c04-ec1f-416b-9658-800909b186e4",
+      "name": "OpenAI Chat Model - Extraction",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"experimentalData\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"propertyType\": {\n            \"type\": \"string\"\n          },\n          \"value\": {\n            \"type\": \"number\"\n          },\n          \"uncertainty\": {\n            \"type\": \"number\"\n          },\n          \"units\": {\n            \"type\": \"string\"\n          },\n          \"initialState\": {\n            \"type\": \"string\"\n          },\n          \"finalState\": {\n            \"type\": \"string\"\n          },\n          \"reference\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}"
+      },
+      "id": "bf96d35c-52a6-49c5-a222-c6ace608eff0",
+      "name": "Atomic Data Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.theoryDataUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c250fda1-8119-4abc-9e72-f9cb8ffd5d5e",
+      "name": "Load Theory Data Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -336,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "quantum_state",
+        "options": {}
+      },
+      "id": "d838fefb-8476-4a5c-9873-00fa47a195f8",
+      "name": "Merge Experimental and Theory Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        144,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert in atomic physics data analysis and comparison.\n\nYour task is to:\n1. Compare experimental data with theory data for each property\n2. Calculate relative uncertainties and differences\n3. Make judgment calls on which experimental data should replace theory values based on:\n   - Experimental uncertainty is similar to or smaller than theory uncertainty\n   - Data quality and reliability\n   - Consistency with other measurements\n4. Create comparison tables showing:\n   - Property\n   - Theory value and uncertainty\n   - Experimental value and uncertainty\n   - Relative difference\n   - Recommendation (keep theory or use experimental)\n   - Justification\n5. For transition rates that need conversion to matrix elements, apply the formulas from https://www1.udel.edu/atom/about\n\nReturn structured comparison results with clear recommendations for each property."
+        }
+      },
+      "id": "6f8f374e-2b8c-4671-93b3-d5d1937570ad",
+      "name": "Comparison and Selection Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        320,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "727b710c-19cd-4bb5-9bb5-34037e74e8a3",
+      "name": "OpenAI Chat Model - Comparison",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        384,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"comparisons\": {\n\t\t\t\"type\": \"array\",\n\t\t\t\"items\": {\n\t\t\t\t\"type\": \"object\",\n\t\t\t\t\"properties\": {\n\t\t\t\t\t\"property\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"theoryValue\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"experimentalValue\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"recommendation\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"justification\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t},\n\t\t\"selectedData\": {\n\t\t\t\"type\": \"array\",\n\t\t\t\"items\": {\n\t\t\t\t\"type\": \"object\"\n\t\t\t}\n\t\t}\n\t}\n}"
+      },
+      "id": "e70236da-ac59-4fe2-818c-74db8af4d0c4",
+      "name": "Comparison Results Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the selected experimental data into required file formats\n// Input: Comparison results with selected experimental data\n// Output: Formatted files for lifetimes, matrix elements, hyperfine constants, and references\n\nconst items = $input.all();\nconst outputFiles = [];\n\n// Initialize data structures for each file type\nconst lifetimes = [];\nconst matrixElements = [];\nconst hyperfineConstants = [];\nconst references = new Map();\n\n// Process each item from the comparison results\nfor (const item of items) {\n  const data = item.json;\n  \n  // Extract selected experimental data\n  const selectedData = data.selectedExperimentalData || data;\n  \n  // Process lifetime data\n  if (selectedData.lifetime) {\n    lifetimes.push({\n      state: selectedData.state || selectedData.level,\n      lifetime_ns: selectedData.lifetime.value,\n      uncertainty_ns: selectedData.lifetime.uncertainty,\n      reference: selectedData.lifetime.reference || selectedData.reference\n    });\n    \n    // Add reference\n    if (selectedData.lifetime.reference) {\n      references.set(selectedData.lifetime.reference, selectedData.citation || selectedData.fullCitation);\n    }\n  }\n  \n  // Process matrix element data\n  if (selectedData.matrixElement || selectedData.transitionStrength) {\n    matrixElements.push({\n      transition: selectedData.transition,\n      matrix_element_au: selectedData.matrixElement?.value || selectedData.transitionStrength?.value,\n      uncertainty_au: selectedData.matrixElement?.uncertainty || selectedData.transitionStrength?.uncertainty,\n      reference: selectedData.matrixElement?.reference || selectedData.reference\n    });\n    \n    // Add reference\n    const ref = selectedData.matrixElement?.reference || selectedData.reference;\n    if (ref) {\n      references.set(ref, selectedData.citation || selectedData.fullCitation);\n    }\n  }\n  \n  // Process hyperfine constant data\n  if (selectedData.hyperfineConstants) {\n    for (const constant of selectedData.hyperfineConstants) {\n      hyperfineConstants.push({\n        state: selectedData.state || selectedData.level,\n        constant_type: constant.type,\n        value_MHz: constant.value,\n        uncertainty_MHz: constant.uncertainty,\n        reference: constant.reference || selectedData.reference\n      });\n      \n      // Add reference\n      const ref = constant.reference || selectedData.reference;\n      if (ref) {\n        references.set(ref, selectedData.citation || selectedData.fullCitation);\n      }\n    }\n  }\n}\n\n// Format lifetimes file\nif (lifetimes.length > 0) {\n  let lifetimesContent = '# Atomic Lifetimes\\n';\n  lifetimesContent += '# State | Lifetime (ns) | Uncertainty (ns) | Reference\\n';\n  lifetimesContent += '#'.repeat(70) + '\\n';\n  \n  for (const lt of lifetimes) {\n    lifetimesContent += `${lt.state}\\t${lt.lifetime_ns}\\t${lt.uncertainty_ns}\\t${lt.reference}\\n`;\n  }\n  \n  outputFiles.push({\n    filename: 'lifetimes.dat',\n    content: lifetimesContent,\n    type: 'lifetimes'\n  });\n}\n\n// Format matrix elements file\nif (matrixElements.length > 0) {\n  let matrixContent = '# Transition Matrix Elements\\n';\n  matrixContent += '# Transition | Matrix Element (a.u.) | Uncertainty (a.u.) | Reference\\n';\n  matrixContent += '#'.repeat(70) + '\\n';\n  \n  for (const me of matrixElements) {\n    matrixContent += `${me.transition}\\t${me.matrix_element_au}\\t${me.uncertainty_au}\\t${me.reference}\\n`;\n  }\n  \n  outputFiles.push({\n    filename: 'matrix_elements.dat',\n    content: matrixContent,\n    type: 'matrix_elements'\n  });\n}\n\n// Format hyperfine constants file\nif (hyperfineConstants.length > 0) {\n  let hyperfineContent = '# Hyperfine Constants\\n';\n  hyperfineContent += '# State | Type | Value (MHz) | Uncertainty (MHz) | Reference\\n';\n  hyperfineContent += '#'.repeat(70) + '\\n';\n  \n  for (const hf of hyperfineConstants) {\n    hyperfineContent += `${hf.state}\\t${hf.constant_type}\\t${hf.value_MHz}\\t${hf.uncertainty_MHz}\\t${hf.reference}\\n`;\n  }\n  \n  outputFiles.push({\n    filename: 'hyperfine_constants.dat',\n    content: hyperfineContent,\n    type: 'hyperfine'\n  });\n}\n\n// Format references file\nif (references.size > 0) {\n  let referencesContent = '# References\\n';\n  referencesContent += '#'.repeat(70) + '\\n\\n';\n  \n  let refIndex = 1;\n  for (const [key, citation] of references) {\n    referencesContent += `[${key}] ${citation}\\n\\n`;\n    refIndex++;\n  }\n  \n  outputFiles.push({\n    filename: 'references.txt',\n    content: referencesContent,\n    type: 'references'\n  });\n}\n\n// Return all formatted files\nreturn outputFiles.map(file => ({\n  json: file\n}));"
+      },
+      "id": "658739ed-1c8d-4a5b-8a9d-1e001c38668e",
+      "name": "Format Output Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Google Sheets document ID for comparison tables__>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "<__PLACEHOLDER_VALUE__Sheet name (e.g., element symbol)__>"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": null
+        },
+        "options": {}
+      },
+      "id": "b65fda2e-d022-4228-846a-69ea824a9534",
+      "name": "Save Comparison Tables",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        720,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Configuration').first().json.outputStorageUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "8ca3122f-e96f-4373-8c06-4b49c7b931b6",
+      "name": "Save Formatted Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        944,
+        160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Literature Search Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Theory Data Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Literature Search Agent": {
+      "main": [
+        [
+          {
+            "node": "Download Paper PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model - Search": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Literature Search Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paper Metadata Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Literature Search Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Paper PDF": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from PDF": {
+      "main": [
+        [
+          {
+            "node": "Data Extraction Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Extraction Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Experimental and Theory Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model - Extraction": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Data Extraction Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atomic Data Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Data Extraction Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Theory Data Files": {
+      "main": [
+        [
+          {
+            "node": "Merge Experimental and Theory Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Experimental and Theory Data": {
+      "main": [
+        [
+          {
+            "node": "Comparison and Selection Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparison and Selection Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Output Files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Comparison Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model - Comparison": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Comparison and Selection Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparison Results Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Comparison and Selection Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output Files": {
+      "main": [
+        [
+          {
+            "node": "Save Formatted Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a6fc2947-cb3e-43cb-ada7-6cb22be024ed",
+  "meta": {
+    "instanceId": "09d42f0470615b51f96e1b231ba3f3b517a228a7eb8712271f81ec4e3340ec9f"
+  },
+  "id": "b8RxVqaVNDh5O3Kw",
+  "tags": []
+}
