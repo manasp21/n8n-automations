@@ -4,9 +4,9 @@ This guide provides step-by-step instructions on how to install n8n and import t
 
 ## 1. Installing n8n
 
-You can run n8n in several ways. We recommend using **Docker** for the best self-hosted experience.
+You can run n8n in several ways.
 
-### Option A: Using Docker (Recommended)
+### Option A: Using Docker
 
 1.  Ensure you have **Docker** installed on your machine.
 2.  Run the following command to start n8n:
@@ -48,7 +48,7 @@ If you prefer a managed service, you can sign up for [n8n Cloud](https://n8n.io/
 
 Once n8n is running, you can import the JSON files from this repository.
 
-### Method 1: Import from File (Best for preservation)
+### Method 1: Import from File
 
 1.  In the n8n dashboard, click the **"Add details"** menu (three dots or plus icon) in the top right corner of the workflow list or canvas.
 2.  Select **"Import from File"**.
@@ -67,18 +67,4 @@ Once n8n is running, you can import the JSON files from this repository.
 
 ## 3. Post-Import Configuration
 
-After importing, you must configure the workflows to work with your environment.
-
-### A. Update Credentials
-Most workflows require API keys. You will see nodes with warnings if credentials are missing.
-1.  Click on nodes like **OpenAI**, **Anthropic**, or **PostgreSQL**.
-2.  Select "Create New Credential" or choose an existing one.
-3.  Enter your API keys (e.g., `sk-...` for OpenAI).
-
-### B. Configure Paths and Placeholders
-Look for the **"Workflow Configuration"** node (usually a `Set` node) at the beginning of the workflow. Update the values:
-*   **API URLs**: If endpoints are required.
-*   **File Paths**: For workflows like `File System Stuff`, ensure the `inputDirectory` and `outputDirectory` exist on the machine running n8n.
-*   **Database**: Ensure your PostgreSQL connection string is correct.
-
-You are now ready to run the automations! 🚀
+Depending on the automation, you may need to configure credentials and paths. This can be tricky depending on the system you are using.
