@@ -1,0 +1,389 @@
+{
+  "name": "File System Stuff",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a752f707-b89e-40b8-9a97-59dd1308a351",
+      "name": "Start Workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "inputDirectory",
+              "value": "<__PLACEHOLDER_VALUE__Path to directory containing PDF files__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "outputDirectory",
+              "value": "<__PLACEHOLDER_VALUE__Base path for organized articles__>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a7ebd6f2-d92a-4351-adb0-8e5417f1bcfa",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1616,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $('Workflow Configuration').first().json.inputDirectory }}/**/*.pdf",
+        "options": {}
+      },
+      "id": "75ea4166-2f9a-4696-a6fb-7a1d5b0aa3da",
+      "name": "Read PDF Files",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -1392,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "285ce815-fe10-4712-b7bb-82252b2a8529",
+      "name": "Process Files One by One",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1168,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "17172479-6fda-4aa7-a4be-365818db27d2",
+      "name": "Extract Text from PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -944,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a research article classifier. Analyze the provided text and determine if this is a main research article or a supplementary material.\n\nMain articles typically contain:\n- Abstract\n- Introduction\n- Methods\n- Results\n- Discussion/Conclusion\n- References\n\nSupplementary materials typically contain:\n- Additional data tables\n- Extended figures\n- Supplementary methods\n- Additional analyses\n- Supporting information\n- Labels like \"Supplementary\", \"Supporting Information\", \"SI\", \"Appendix\"\n\nReturn your classification as JSON."
+        }
+      },
+      "id": "694f799f-3598-4239-9169-965658e8ff6e",
+      "name": "Classify Document Type",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -720,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "id": "bed40e82-c0b5-4a10-9a1d-2a1c421c35fb",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -720,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"isSupplementary\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if this is supplementary material, false if main article\"\n    },\n    \"articleTitle\": {\n      \"type\": \"string\",\n      \"description\": \"The title of the article extracted from the document\"\n    },\n    \"confidence\": {\n      \"type\": \"string\",\n      \"enum\": [\"high\", \"medium\", \"low\"],\n      \"description\": \"Confidence level of the classification\"\n    }\n  },\n  \"required\": [\"isSupplementary\", \"articleTitle\", \"confidence\"]\n}"
+      },
+      "id": "b2bc4fff-9fb5-44cd-b67a-24e03bc4724b",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -592,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isSupplementary }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0022887f-0803-4b66-88d8-21654f2a9289",
+      "name": "Is Supplementary?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -368,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get configuration from Workflow Configuration node\nconst outputDirectory = $('Workflow Configuration').first().json.outputDirectory;\nconst articleTitle = $json.articleTitle;\nconst originalFileName = $('Read PDF Files').item.json.fileName;\n\n// Sanitize article title for use as directory name\nconst sanitizedTitle = articleTitle\n  .replace(/[^a-zA-Z0-9\\s-]/g, '') // Remove special characters\n  .replace(/\\s+/g, '_') // Replace spaces with underscores\n  .substring(0, 100); // Limit length\n\n// Create article-specific directory path\nconst articleDirectory = `${outputDirectory}/${sanitizedTitle}`;\n\n// Determine the new file path for the main article\nconst newFilePath = `${articleDirectory}/main_article.pdf`;\n\n// Get the binary data from the original file\nconst binaryData = $('Read PDF Files').item.binary.data;\n\n// Return the organized file information\nreturn {\n  json: {\n    originalFileName: originalFileName,\n    articleTitle: articleTitle,\n    articleDirectory: articleDirectory,\n    newFilePath: newFilePath,\n    fileType: 'main_article',\n    organized: true\n  },\n  binary: {\n    data: binaryData\n  }\n};"
+      },
+      "id": "6462b551-042e-4a1d-9da1-69de027576d7",
+      "name": "Organize Main Article",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the current item data\nconst item = $input.item.json;\nconst binaryData = $input.item.binary;\nconst outputDirectory = $('Workflow Configuration').first().json.outputDirectory;\nconst fileName = $input.item.json.fileName || 'unknown.pdf';\nconst articleTitle = item.articleTitle || 'Unknown_Article';\n\n// Sanitize the article title for use as a directory name\nconst sanitizedTitle = articleTitle\n  .replace(/[^a-zA-Z0-9\\s-]/g, '') // Remove special characters\n  .replace(/\\s+/g, '_') // Replace spaces with underscores\n  .substring(0, 100); // Limit length\n\n// Create the path structure: outputDirectory/ArticleTitle/suppl/filename.pdf\nconst articleDir = `${outputDirectory}/${sanitizedTitle}`;\nconst supplDir = `${articleDir}/suppl`;\nconst targetPath = `${supplDir}/${fileName}`;\n\n// Return the organized file information\nreturn {\n  json: {\n    ...item,\n    originalPath: fileName,\n    targetPath: targetPath,\n    articleDirectory: articleDir,\n    supplementaryDirectory: supplDir,\n    organizationType: 'supplementary'\n  },\n  binary: binaryData\n};"
+      },
+      "id": "48df8da3-e057-4028-8486-9053a829a798",
+      "name": "Organize Supplementary File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.newFilePath }}",
+        "options": {}
+      },
+      "id": "8e880f43-a70f-49b1-a52d-5b6c3ab75dc1",
+      "name": "Write Main Article File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        80,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.targetPath }}",
+        "options": {}
+      },
+      "id": "5e58d3ea-92c0-49ff-9660-dc8de8c58df6",
+      "name": "Write Supplementary File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        80,
+        416
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Workflow": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Read PDF Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF Files": {
+      "main": [
+        [
+          {
+            "node": "Process Files One by One",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Files One by One": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from PDF": {
+      "main": [
+        [
+          {
+            "node": "Classify Document Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Document Type": {
+      "main": [
+        [
+          {
+            "node": "Is Supplementary?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Document Type",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Classify Document Type",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Supplementary?": {
+      "main": [
+        [
+          {
+            "node": "Organize Supplementary File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Organize Main Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organize Main Article": {
+      "main": [
+        [
+          {
+            "node": "Write Main Article File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organize Supplementary File": {
+      "main": [
+        [
+          {
+            "node": "Write Supplementary File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Main Article File": {
+      "main": [
+        [
+          {
+            "node": "Process Files One by One",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Supplementary File": {
+      "main": [
+        [
+          {
+            "node": "Process Files One by One",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8c32e4d0-d4a5-4ced-8ce0-ae45089b062c",
+  "meta": {
+    "instanceId": "09d42f0470615b51f96e1b231ba3f3b517a228a7eb8712271f81ec4e3340ec9f"
+  },
+  "id": "lmG9HfPG1qpujp8B",
+  "tags": []
+}
