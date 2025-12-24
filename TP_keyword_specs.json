@@ -1,0 +1,384 @@
+{
+  "name": "TP_keyword_specs",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nist-keyword-extraction",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "0293b5d9-b429-46bd-bb1d-9085e45b6874",
+      "name": "Receive Article Data",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -976,
+        -128
+      ],
+      "webhookId": "3ecc97bb-c1b2-4ddf-b00f-e234a632468f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "periodicTableElements",
+              "value": "[\"H\", \"He\", \"Li\", \"Be\", \"B\", \"C\", \"N\", \"O\", \"F\", \"Ne\", \"Na\", \"Mg\", \"Al\", \"Si\", \"P\", \"S\", \"Cl\", \"Ar\", \"K\", \"Ca\", \"Sc\", \"Ti\", \"V\", \"Cr\", \"Mn\", \"Fe\", \"Co\", \"Ni\", \"Cu\", \"Zn\", \"Ga\", \"Ge\", \"As\", \"Se\", \"Br\", \"Kr\", \"Rb\", \"Sr\", \"Y\", \"Zr\", \"Nb\", \"Mo\", \"Tc\", \"Ru\", \"Rh\", \"Pd\", \"Ag\", \"Cd\", \"In\", \"Sn\", \"Sb\", \"Te\", \"I\", \"Xe\", \"Cs\", \"Ba\", \"La\", \"Ce\", \"Pr\", \"Nd\", \"Pm\", \"Sm\", \"Eu\", \"Gd\", \"Tb\", \"Dy\", \"Ho\", \"Er\", \"Tm\", \"Yb\", \"Lu\", \"Hf\", \"Ta\", \"W\", \"Re\", \"Os\", \"Ir\", \"Pt\", \"Au\", \"Hg\", \"Tl\", \"Pb\", \"Bi\", \"Po\", \"At\", \"Rn\", \"Fr\", \"Ra\", \"Ac\", \"Th\", \"Pa\", \"U\", \"Np\", \"Pu\", \"Am\", \"Cm\", \"Bk\", \"Cf\", \"Es\", \"Fm\", \"Md\", \"No\", \"Lr\", \"Rf\", \"Db\", \"Sg\", \"Bh\", \"Hs\", \"Mt\", \"Ds\", \"Rg\", \"Cn\", \"Nh\", \"Fl\", \"Mc\", \"Lv\", \"Ts\", \"Og\"]",
+              "type": "array"
+            },
+            {
+              "id": "id-2",
+              "name": "genintCodes",
+              "value": "={ \"A\": \"Transition probabilities and lifetimes\", \"B\": \"Atomic energy levels and ionization potentials\", \"C\": \"Wavelengths\", \"D\": \"Line intensities and absorption coefficients\", \"E\": \"Atomic collision cross sections and rate coefficients\", \"F\": \"Widths and shifts of atomic spectral lines\", \"G\": \"Hyperfine structure constants\", \"H\": \"Isotope shifts\", \"I\": \"Polarizabilities\", \"J\": \"Quantum defects\", \"K\": \"Stark effect\", \"L\": \"Zeeman effect\", \"M\": \"Parity nonconservation\", \"N\": \"Autoionization\", \"O\": \"Photoionization and photodetachment\", \"P\": \"Electron affinities\", \"Q\": \"Auger effect\", \"R\": \"Dielectronic recombination\", \"S\": \"Radiative recombination\", \"T\": \"Multiphoton ionization\", \"U\": \"Rydberg states\", \"V\": \"Exotic atoms and molecules\", \"W\": \"Negative ions\", \"X\": \"Highly ionized atoms\", \"Y\": \"Atoms in external fields\", \"Z\": \"Other atomic properties\" }",
+              "type": "object"
+            },
+            {
+              "id": "id-3",
+              "name": "methodCodes",
+              "value": "={ \"E\": \"Experimental\", \"T\": \"Theoretical\", \"S\": \"Semiempirical\", \"C\": \"Compilation\", \"R\": \"Review\", \"A\": \"Assessment\" }",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f37ee20e-3e16-4806-a33a-e9d4b76ce81a",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "f4da0ea2-9436-4d80-b0eb-48c84d1898ec",
+      "name": "Extract Article Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a scientific document classifier for the NIST Atomic Transition Probability Database.\n\nYour task is to analyze scientific articles and classify them into General Interest (GENINT) categories based on the NIST specifications.\n\n**GENINT Classification Rules:**\n\n1. **Code 1.2 (Compilations)**: Assign if the paper is primarily a compilation or collection of data from multiple sources.\n2. **Code 1.3 (Reviews)**: Assign if the paper is a review, survey, or summary of existing literature.\n3. **Code 1.5 (Bibliographies)**: Assign if the paper is primarily a bibliography or reference list.\n4. **Code 1.6 (General Tables)**: Assign if the paper contains general reference tables.\n5. **Code 1.10 (Exotic Atoms)**: Assign if the paper discusses muonium, positronium, or other exotic atoms. If hydrogen data also exists, automatically include hydrogen.\n\n**Research Type Classification:**\n- **E** (Experiment): The paper reports experimental measurements or observations.\n- **T** (Theory): The paper presents theoretical calculations or models.\n- **O** (Other): The paper is neither primarily experimental nor theoretical.\n\n**Hierarchy Rules:**\n- Codes 1.2, 1.5, and 1.6 are \"Restricted Use\" - only assign if NO specific spectral data (element-specific keywords) are found.\n- Prioritize specific data over general codes.\n- Multiple GENINT codes can be assigned if applicable.\n\n**Output Format:**\nReturn a JSON object with:\n- genintCodes: array of applicable GENINT code numbers (e.g., [1.3, 1.10])\n- researchType: single character (E, T, or O)\n- hasSpecificData: boolean indicating if specific spectral data is mentioned\n- reasoning: brief explanation of classification"
+        }
+      },
+      "id": "e914fb64-a8cd-446f-aee3-86a6ba2101ef",
+      "name": "GENINT Classification Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -304,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a spectroscopic data extraction specialist for the NIST Atomic Transition Probability Database.\n\nYour task is to extract Element-Specific (spectrum) information from scientific articles.\n\n**Extraction Rules:**\n\n1. **Element Identification:**\n   - Extract all chemical element symbols mentioned in the context of spectroscopic data\n   - Convert element names to standard Periodic Table symbols (e.g., \"Carbon\" → \"C\", \"Iron\" → \"Fe\")\n   - Filter out non-elemental terms (e.g., \"Sun\", \"Nebula\", \"Star\")\n   - Validate against the periodic table\n\n2. **Ionization State Parsing:**\n   - Identify Roman numerals indicating ionization states (e.g., \"Fe I\", \"C IV\")\n   - Recognize iso-electronic sequences (e.g., \"Li-like\", \"He-like\")\n   - Neutral atoms are designated with \"I\" (e.g., \"Na I\")\n   - Singly ionized atoms are \"II\", doubly ionized are \"III\", etc.\n\n3. **Isotope Handling:**\n   - Detect mass numbers (e.g., \"198Hg\", \"235U\")\n   - Map hydrogen isotopes: Deuterium → \"D\", Tritium → \"T\"\n   - Preserve isotope notation when present\n\n4. **Grouping Rules:**\n   - Group multiple ionization states of the same element together\n   - Identify element ranges (e.g., \"lanthanides\" → \"La-Lu\")\n\n**Output Format:**\nReturn a JSON object with:\n- elements: array of objects, each containing:\n  - symbol: element symbol (e.g., \"V\")\n  - ionizationStates: array of Roman numerals (e.g., [\"I\", \"II\"])\n  - isotope: mass number if specified (optional)\n  - isRange: boolean indicating if this is an element range\n  - rangeEnd: ending element symbol if isRange is true\n- reasoning: brief explanation of extraction"
+        }
+      },
+      "id": "6c35221d-f45c-4591-9e1c-e29ac10b3880",
+      "name": "Element-Specific Extraction Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        48,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a methodology classification specialist for the NIST Atomic Transition Probability Database.\n\nYour task is to map technical terms and methodology descriptions to specific NIST Method Codes.\n\n**Method Code Mappings:**\n\n- **A** (Absorption): Terms like \"King furnace\", \"absorption tube\", \"absorption spectroscopy\", \"absorption measurements\"\n- **E** (Emission): Terms like \"emission spectra\", \"emission spectroscopy\", \"arc emission\", \"spark emission\"\n- **L** (Lifetime): Terms like \"Hanle effect\", \"beam-foil\", \"time-resolved\", \"radiative lifetime\", \"decay measurements\", \"laser-induced fluorescence\"\n- **Q** (Quantum calculations): Terms like \"Hartree-Fock\", \"Dirac-Fock\", \"ab initio\", \"configuration interaction\", \"MCDHF\", \"quantum mechanical\", \"theoretical calculations\"\n- **I** (Interpolation): Terms like \"isoelectronic interpolation\", \"systematic trends\", \"extrapolation\"\n- **F** (f-values): Terms like \"oscillator strengths\", \"f-values\", \"transition probabilities\"\n- **S** (Stark effect): Terms like \"Stark broadening\", \"Stark effect\"\n- **H** (Hook method): Terms like \"hook method\"\n- **M** (Magnetic rotation): Terms like \"magnetic rotation\", \"Faraday rotation\"\n\n**Research Type Classification:**\n- **E** (Experiment): The methodology involves experimental measurements\n- **T** (Theory): The methodology involves theoretical calculations\n- **O** (Other): Neither experimental nor theoretical\n\n**Rules:**\n- Multiple method codes can be assigned if multiple methodologies are used\n- Each method code should be paired with its research type\n- Be precise in identifying methodology terms from the abstract and methods sections\n\n**Output Format:**\nReturn a JSON object with:\n- methods: array of objects, each containing:\n  - code: single letter method code (e.g., \"L\")\n  - researchType: single character (E, T, or O)\n  - description: brief description of the methodology found\n- reasoning: brief explanation of methodology mapping"
+        }
+      },
+      "id": "0782ca8b-9fc2-4237-be78-0807847d60e8",
+      "name": "Methodology Mapping Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        400,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "20f8ab0f-24f3-4aea-88a8-94cebd6b40cd",
+      "name": "OpenAI Model - GENINT",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "a84f2323-697f-4251-9fb6-231fbe5ddd5e",
+      "name": "OpenAI Model - Element",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "98f21fb3-5130-4086-8b6d-757059f8cd8b",
+      "name": "OpenAI Model - Methodology",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"genintCodes\": {\n\t\t\t\"type\": \"array\",\n\t\t\t\"items\": {\n\t\t\t\t\"type\": \"number\"\n\t\t\t}\n\t\t},\n\t\t\"researchType\": {\n\t\t\t\"type\": \"string\"\n\t\t},\n\t\t\"hasSpecificData\": {\n\t\t\t\"type\": \"boolean\"\n\t\t},\n\t\t\"reasoning\": {\n\t\t\t\"type\": \"string\"\n\t\t}\n\t}\n}"
+      },
+      "id": "641e9c95-4b46-45ea-8915-19e5634d25e2",
+      "name": "GENINT Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"elements\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"symbol\": {\n            \"type\": \"string\"\n          },\n          \"ionizationStates\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"isotope\": {\n            \"type\": \"string\"\n          },\n          \"isRange\": {\n            \"type\": \"boolean\"\n          },\n          \"rangeEnd\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\"symbol\", \"ionizationStates\", \"isRange\"]\n      }\n    },\n    \"reasoning\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"elements\", \"reasoning\"]\n}"
+      },
+      "id": "15e2ce56-65ff-4fc2-be2a-b890f4831a8d",
+      "name": "Element Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"methods\": {\n\t\t\t\"type\": \"array\",\n\t\t\t\"items\": {\n\t\t\t\t\"type\": \"object\",\n\t\t\t\t\"properties\": {\n\t\t\t\t\t\"code\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"researchType\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t},\n\t\t\t\t\t\"description\": {\n\t\t\t\t\t\t\"type\": \"string\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t},\n\t\t\"reasoning\": {\n\t\t\t\"type\": \"string\"\n\t\t}\n\t}\n}"
+      },
+      "id": "0e05a44a-453a-4e3f-accf-5de750b98f66",
+      "name": "Methodology Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        544,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format BibTeX Keywords according to NIST specifications\n// Combines GENINT codes, element-specific data, and methodology codes\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const genintData = item.json.genint || {};\n  const elementData = item.json.elements || {};\n  const methodologyData = item.json.methodology || {};\n  \n  // Extract GENINT codes\n  const genintCodes = genintData.codes || [];\n  \n  // Extract element-specific data\n  const elements = elementData.elements || [];\n  \n  // Extract methodology codes\n  const methodologyCodes = methodologyData.codes || [];\n  \n  // Format element strings\n  // Same element, different ionization states: comma-separated (e.g., \"Fe I, Fe II\")\n  // Different elements: semicolon-separated (e.g., \"Fe I; Ni II\")\n  // Ranges: dash-separated (e.g., \"Fe I-III\" for Fe I, Fe II, Fe III)\n  const elementStrings = [];\n  \n  if (elements.length > 0) {\n    // Group by element symbol\n    const elementGroups = {};\n    for (const el of elements) {\n      const symbol = el.symbol || '';\n      const ionization = el.ionization || '';\n      if (!elementGroups[symbol]) {\n        elementGroups[symbol] = [];\n      }\n      elementGroups[symbol].push(ionization);\n    }\n    \n    // Format each element group\n    for (const [symbol, ionizations] of Object.entries(elementGroups)) {\n      if (ionizations.length === 1) {\n        elementStrings.push(`${symbol} ${ionizations[0]}`);\n      } else {\n        // Check if ionizations form a continuous range\n        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];\n        const indices = ionizations.map(ion => romanNumerals.indexOf(ion)).filter(i => i !== -1).sort((a, b) => a - b);\n        \n        if (indices.length > 2 && indices[indices.length - 1] - indices[0] === indices.length - 1) {\n          // Continuous range\n          elementStrings.push(`${symbol} ${romanNumerals[indices[0]]}-${romanNumerals[indices[indices.length - 1]]}`);\n        } else {\n          // Non-continuous, use comma separation\n          elementStrings.push(ionizations.map(ion => `${symbol} ${ion}`).join(', '));\n        }\n      }\n    }\n  }\n  \n  // Combine all parts with semicolons\n  const keywordParts = [];\n  \n  if (genintCodes.length > 0) {\n    keywordParts.push(...genintCodes);\n  }\n  \n  if (elementStrings.length > 0) {\n    keywordParts.push(...elementStrings);\n  }\n  \n  if (methodologyCodes.length > 0) {\n    keywordParts.push(...methodologyCodes);\n  }\n  \n  // Create final keywords_tp field\n  const keywords_tp = keywordParts.join('; ');\n  \n  results.push({\n    json: {\n      ...item.json,\n      keywords_tp: keywords_tp,\n      bibtex_formatted: true\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "b103c960-747f-4da9-8d50-db767b520708",
+      "name": "Format BibTeX Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -128
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Article Data": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Extract Article Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Article Text": {
+      "main": [
+        [
+          {
+            "node": "GENINT Classification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GENINT Classification Agent": {
+      "main": [
+        [
+          {
+            "node": "Element-Specific Extraction Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Element-Specific Extraction Agent": {
+      "main": [
+        [
+          {
+            "node": "Methodology Mapping Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Methodology Mapping Agent": {
+      "main": [
+        [
+          {
+            "node": "Format BibTeX Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model - GENINT": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "GENINT Classification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model - Element": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Element-Specific Extraction Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model - Methodology": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Methodology Mapping Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GENINT Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "GENINT Classification Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Element Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Element-Specific Extraction Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Methodology Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Methodology Mapping Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f4c710d3-474c-488a-a215-a3376a12054c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09d42f0470615b51f96e1b231ba3f3b517a228a7eb8712271f81ec4e3340ec9f"
+  },
+  "id": "0dDBu0xoo2JJKZxS",
+  "tags": []
+}
